@@ -161,15 +161,15 @@ function isWalkable(px,py,pw,ph){
 // ── ITEMS ─────────────────────────────────────────
 // Positions updated to match new room layout (BOT_Y=250)
 const ITEMS = {
-  bottle:   {x:160, y:290, e:'🍼',name:'젖병',          col:'#C4E4F2', avail:true},   // kitchen mid-counter
-  diaper:   {x:400, y:95,  e:'🧷',name:'기저귀',        col:'#F0EDE8', avail:true},   // baby room changing table
-  toy:      {x:870, y:470, e:'🧸',name:'장난감',        col:'#F4BC58', avail:true},   // living room corner
-  groceries:{x:265, y:UI_H+15,e:'🛒',name:'장보기',     col:'#7AAA78', avail:false},  // entry (appears on event)
-  plate:    {x:55,  y:420, e:'🍽',name:'식사',          col:'#F2EEE8', avail:true},   // kitchen lower shelf
-  mop:      {x:340, y:470, e:'🧹',name:'걸레',          col:'#8AB4D0', avail:true},   // kitchen corner
-  soap:     {x:50,  y:170, e:'🧴',name:'비누',          col:'#D0B4E0', avail:true},   // bathroom shelf
-  leash:    {x:238, y:95,  e:'🐾',name:'목줄',          col:'#C49038', avail:true},   // entry hook
-  dog_bowl: {x:270, y:460, e:'🥣',name:'강아지 밥그릇', col:'#8EB0C8', avail:true},  // kitchen floor
+  bottle:   {x:55,  y:308, e:'🍼',name:'젖병',          col:'#C4E4F2', avail:true},   // kitchen counter top
+  diaper:   {x:450, y:120, e:'🧷',name:'기저귀',        col:'#F0EDE8', avail:true},   // baby room changing table
+  toy:      {x:840, y:450, e:'🧸',name:'장난감',        col:'#F4BC58', avail:true},   // living room corner
+  groceries:{x:265, y:UI_H+30,e:'🛒',name:'장보기',     col:'#7AAA78', avail:false},  // entry bench (appears on event)
+  plate:    {x:55,  y:380, e:'🍽',name:'식사',          col:'#F2EEE8', avail:true},   // kitchen stove area
+  mop:      {x:200, y:460, e:'🧹',name:'걸레',          col:'#8AB4D0', avail:true},   // kitchen mid-floor
+  soap:     {x:50,  y:150, e:'🧴',name:'비누',          col:'#D0B4E0', avail:true},   // bathroom sink area
+  leash:    {x:245, y:120, e:'🐾',name:'목줄',          col:'#C49038', avail:true},   // entry bench
+  dog_bowl: {x:120, y:450, e:'🥣',name:'강아지 밥그릇', col:'#8EB0C8', avail:true},  // kitchen corner
 };
 
 // ── GAME STATE ────────────────────────────────────
@@ -180,7 +180,7 @@ let happiness=88;
 let flashMsg='', flashT=0;
 let shakeT=0, shakeX=0, shakeY=0;
 
-const PLR={x:430,y:380,w:12*P,h:18*P,spd:170,dir:'down',frame:0,ft:0,carrying:null};
+const PLR={x:650,y:430,w:12*P,h:18*P,spd:170,dir:'down',frame:0,ft:0,carrying:null};
 const BABY={x:820,y:90, state:'happy',blink:0,bouncT:0};
 const DOG ={x:490,y:420,dir:1,walkT:0,frame:0,restT:2,ft:0};
 const SPOUSE={x:450,y:380,present:false,state:'tired',frame:0,ft:0,dir:'down'};
@@ -366,11 +366,11 @@ function drawRooms(){
 
   // 2. Per-room floors with gradient + texture
   const ROOM_CFG={
-    bathroom:{base:'#E8F2F8',mid:'#D4E8F2',line:'#C0D8EC',lineStep:18,lineDir:'grid'},
-    entry:   {base:'#C0AE82',mid:'#B09A6E',line:'#A08A5A',lineStep:14,lineDir:'h'},
-    baby:    {base:'#F4EAF8',mid:'#E8DAEE',line:'#D8C8E8',lineStep:0,lineDir:'none'},
-    kitchen: {base:'#EAE4D8',mid:'#DED8CC',line:'#CCCABC',lineStep:22,lineDir:'grid'},
-    living:  {base:'#D4A86C',mid:'#C09050',line:'#B08040',lineStep:12,lineDir:'h'},
+    bathroom:{base:'#EAF4FC',mid:'#D8ECF8',line:'#C0D8EC',lineStep:18,lineDir:'grid'},
+    entry:   {base:'#E8DFCA',mid:'#D8CDB4',line:'#C8B898',lineStep:14,lineDir:'h'},
+    baby:    {base:'#F8F0FE',mid:'#EEE0F8',line:'#DDD0F0',lineStep:16,lineDir:'h'},
+    kitchen: {base:'#EDEAE0',mid:'#E0DDD2',line:'#D0CFC4',lineStep:22,lineDir:'grid'},
+    living:  {base:'#DEB070',mid:'#C89848',line:'#B88038',lineStep:12,lineDir:'h'},
   };
   Object.entries(RM).forEach(([name,r])=>{
     const cfg=ROOM_CFG[name];
@@ -469,10 +469,10 @@ function drawFurniture(){
   cx.fillStyle='#C8B08A'; cx.beginPath(); cx.ellipse(lx+lw-50,ly+lh-55,28,20,0,0,Math.PI*2); cx.fill();
   cx.font='14px serif'; cx.fillText('🐾',lx+lw-50,ly+lh-48);
 
-  // Plant in corner
-  cx.fillStyle='#5A3A18'; cx.fillRect(lx+2,ly+lh-35,20,30);
-  cx.fillStyle='#2D6830'; cx.beginPath(); cx.arc(lx+12,ly+lh-38,22,0,Math.PI*2); cx.fill();
-  cx.fillStyle='#3A8040'; cx.beginPath(); cx.arc(lx+10,ly+lh-55,14,0,Math.PI*2); cx.fill();
+  // Plant in corner (safe distance from left wall)
+  cx.fillStyle='#5A3A18'; cx.fillRect(lx+18,ly+lh-35,20,30);
+  cx.fillStyle='#2D6830'; cx.beginPath(); cx.arc(lx+28,ly+lh-38,22,0,Math.PI*2); cx.fill();
+  cx.fillStyle='#3A8040'; cx.beginPath(); cx.arc(lx+26,ly+lh-55,14,0,Math.PI*2); cx.fill();
 
   // ── KITCHEN ──────────────────────────────────────
   const KR=RM.kitchen;
@@ -519,11 +519,24 @@ function drawFurniture(){
   const BR=RM.baby;
   const bx=BR.x+WALL, by2=BR.y+WALL, bw=BR.w-WALL*2, bh=BR.h-WALL*2;
 
-  // Rug (soft lavender)
-  cx.fillStyle='rgba(180,140,200,0.22)'; cx.fillRect(bx+10,by2+bh-110,300,98);
-  cx.strokeStyle='rgba(160,120,180,0.4)'; cx.lineWidth=2;
+  // Rug (soft lavender, more visible)
+  cx.fillStyle='rgba(160,110,200,0.32)'; cx.fillRect(bx+10,by2+bh-110,300,98);
+  cx.strokeStyle='rgba(140,90,180,0.55)'; cx.lineWidth=2;
   cx.strokeRect(bx+16,by2+bh-104,288,86);
+  cx.strokeRect(bx+22,by2+bh-98,276,74); // double border
   cx.lineWidth=1;
+
+  // Play gym (activity arch) in center of baby room
+  const pgX=bx+bw/2-60, pgY=by2+bh/2-20;
+  cx.fillStyle='rgba(255,200,210,0.4)'; cx.fillRect(pgX,pgY,120,60); // mat
+  cx.strokeStyle='rgba(220,140,160,0.7)'; cx.lineWidth=1.5;
+  cx.strokeRect(pgX+2,pgY+2,116,56);
+  cx.lineWidth=1;
+  // Arch
+  cx.strokeStyle='#E08098'; cx.lineWidth=3;
+  cx.beginPath(); cx.arc(pgX+60,pgY+60,45,Math.PI,0); cx.stroke();
+  cx.lineWidth=1;
+  cx.font='10px serif'; cx.fillText('🌟 🎵 🌈',pgX+60,pgY+30);
 
   // Crib (right side, open-top-view)
   const cX=bx+bw-170, cY=by2+6;
@@ -549,21 +562,23 @@ function drawFurniture(){
   cx.fillText('🌙',cX+40,cY-15); cx.fillText('⭐',cX+80,cY-18); cx.fillText('🌸',cX+120,cY-15);
   cx.lineWidth=1;
 
-  // Changing table
-  furn(bx+8,by2+6, 115, 72, '#C8C0B0','#A8A090',0.15,5);
-  cx.fillStyle='#EAE4DC'; cx.fillRect(bx+8,by2+6,115,12); // padded top
-  cx.fillStyle='#F0ECE4'; cx.fillRect(bx+10,by2+7,111,8);
-  cx.font='16px serif'; cx.fillText('🧷',bx+65,by2+65);
+  // Changing table (pushed 30px from left wall)
+  furn(bx+30,by2+6, 110, 68, '#B8A890','#90806A',0.18,5);
+  cx.fillStyle='#D8D0C4'; cx.fillRect(bx+30,by2+6,110,12); // padded top
+  cx.fillStyle='#EAE4DC'; cx.fillRect(bx+32,by2+7,106,8);
+  cx.font='16px serif'; cx.fillText('🧷',bx+85,by2+62);
 
   // Toy shelf (wall mounted)
-  furn(bx+135,by2+6, 130, 15, '#C8A878','#A08050',0.1,3);
-  cx.font='13px serif'; cx.fillText('🧸 🪆',bx+200,by2+19);
+  furn(bx+155,by2+6, 120, 14, '#B89060','#8A6030',0.1,3);
+  cx.font='13px serif'; cx.fillText('🧸 🪆',bx+215,by2+19);
 
-  // Wardrobe
-  furn(bx+bw-170-180,by2+6,80,bh-14,'#D4C8A8','#B0A480',0.2,6);
-  cx.fillStyle='rgba(0,0,0,0.08)'; cx.fillRect(bx+bw-350+40,by2+10,2,bh-24); // door split
-  cx.fillStyle='#C0A860'; cx.beginPath(); cx.arc(bx+bw-350+36,by2+bh/2,3,0,Math.PI*2); cx.fill();
-  cx.fillStyle='#C0A860'; cx.beginPath(); cx.arc(bx+bw-350+44,by2+bh/2,3,0,Math.PI*2); cx.fill();
+  // Wardrobe — contrasting dark wood
+  const wdX=bx+bw-170-175, wdY=by2+6;
+  furn(wdX,wdY,88,bh-14,'#8C6C44','#5E4028',0.25,7);
+  cx.fillStyle='#A07848'; cx.fillRect(wdX+2,wdY+2,84,bh-20); // main face
+  cx.fillStyle='rgba(0,0,0,0.2)'; cx.fillRect(wdX+44,wdY+4,2,bh-22); // door split
+  cx.fillStyle='#D4A040'; cx.beginPath(); cx.arc(wdX+40,wdY+(bh-14)/2,4,0,Math.PI*2); cx.fill();
+  cx.fillStyle='#D4A040'; cx.beginPath(); cx.arc(wdX+48,wdY+(bh-14)/2,4,0,Math.PI*2); cx.fill();
 
   // ── BATHROOM ─────────────────────────────────────
   const BTHR=RM.bathroom;
@@ -605,34 +620,30 @@ function drawFurniture(){
   const ENT=RM.entry;
   const ex=ENT.x+WALL, ey=ENT.y+WALL, ew=ENT.w-WALL*2, eh=ENT.h-WALL*2;
 
-  // Front door
-  furn(ex+6,ey, ew-12, 40, '#8A6040','#6A4020',0.25,5);
-  cx.fillStyle='#A07848'; cx.fillRect(ex+8,ey+2,ew-16,36);
-  // Door panels
-  cx.fillStyle='rgba(0,0,0,0.15)';
-  cx.fillRect(ex+10,ey+4,ew/2-16,13); cx.fillRect(ex+ew/2+2,ey+4,ew/2-16,13);
-  cx.fillRect(ex+10,ey+20,ew/2-16,16); cx.fillRect(ex+ew/2+2,ey+20,ew/2-16,16);
-  cx.fillStyle='#D4A040'; cx.beginPath(); cx.arc(ex+ew/2+2,ey+21,4,0,Math.PI*2); cx.fill(); // knob
+  // Front door — dark wood with brass knob
+  furn(ex+4,ey, ew-8, 36, '#7A5030','#5A3010',0.28,4);
+  cx.fillStyle='#9A6840'; cx.fillRect(ex+6,ey+2,ew-12,30);
+  cx.fillStyle='rgba(0,0,0,0.18)';
+  cx.fillRect(ex+8,ey+4,ew/2-12,10); cx.fillRect(ex+ew/2+2,ey+4,ew/2-12,10);
+  cx.fillRect(ex+8,ey+17,ew/2-12,13); cx.fillRect(ex+ew/2+2,ey+17,ew/2-12,13);
+  cx.fillStyle='#E4B040'; cx.beginPath(); cx.arc(ex+ew/2+1,ey+18,4,0,Math.PI*2); cx.fill();
 
-  // Mirror on wall
-  furn(ex+6,ey+48, ew-12, 50, '#B8D0DC','#8AAAB8',0.12,3);
-  cx.fillStyle='rgba(220,240,255,0.4)'; cx.fillRect(ex+8,ey+50,ew-16,20); // reflection
-
-  // Shoe rack
-  furn(ex,ey+eh-32, ew, 28, '#8A6848','#5A4030',0.2,5);
-  cx.fillStyle='rgba(0,0,0,0.12)'; cx.fillRect(ex,ey+eh-32,ew,4);
-  cx.font='11px serif'; cx.fillText('👟 👞',ex+ew/2,ey+eh-14);
-
-  // Hooks on right wall
-  cx.fillStyle='#4A2C0A';
-  [ey+55,ey+78,ey+101].forEach(hy=>{
-    cx.beginPath(); cx.arc(ex+ew+2,hy,5,0,Math.PI*2); cx.fill();
-    cx.fillStyle='#8A6848';
-    cx.beginPath(); cx.arc(ex+ew+2,hy,3,0,Math.PI*2); cx.fill();
-    cx.fillStyle='#4A2C0A';
+  // Coat hooks on left wall (vertical strip)
+  cx.fillStyle='#5A3A18';
+  [ey+45,ey+66,ey+87].forEach(hy=>{
+    cx.beginPath(); cx.arc(ex+6,hy,5,0,Math.PI*2); cx.fill();
+    cx.fillStyle='#8A6848'; cx.beginPath(); cx.arc(ex+6,hy,3,0,Math.PI*2); cx.fill();
+    cx.fillStyle='#5A3A18';
   });
-  // Leash on hook
-  cx.font='12px serif'; cx.fillText('🐾',ex+ew+2,ey+48);
+
+  // Small bench/shelf in middle
+  furn(ex+16,ey+42, ew-32, 55, '#C8B07A','#A09050',0.18,5);
+  cx.fillStyle='#D8C08A'; cx.fillRect(ex+16,ey+42,ew-32,8); // top surface
+
+  // Shoe rack at bottom
+  furn(ex,ey+eh-30, ew, 26, '#7A5A38','#5A3A18',0.22,4);
+  cx.fillStyle='rgba(0,0,0,0.1)'; cx.fillRect(ex,ey+eh-30,ew,4);
+  cx.font='11px serif'; cx.fillText('👟 👞',ex+ew/2,ey+eh-13);
 }
 
 // ── ITEMS DRAWING ─────────────────────────────────
@@ -795,10 +806,10 @@ function drawHUD(){
     cx.font='11px monospace'; cx.fillStyle='#F5EDD8';
     cx.fillText('들고 있음:',W-105,22);
     cx.font='20px serif'; cx.fillText(it?it.e:'📦',W-40,32);
-    cx.font='9px monospace'; cx.fillStyle='#FFAA60';
+    cx.font='10px monospace'; cx.fillStyle='#FFAA60';
     cx.fillText('[X] 내려놓기',W-10,46);
   } else {
-    cx.font='10px monospace'; cx.fillStyle='#705040'; cx.textAlign='right';
+    cx.font='10px monospace'; cx.fillStyle='#8A6050'; cx.textAlign='right';
     cx.fillText('[A] 행동  [X] 내려놓기',W-10,46);
   }
   
@@ -1022,7 +1033,7 @@ function isInRoom(x,y,name){
 // ── UPDATE ────────────────────────────────────────
 function startGame(){
   gs='play'; gameTime=GAME_START; realElapsed=0; happiness=88;
-  PLR.x=430; PLR.y=380; PLR.carrying=null; PLR.dir='down';
+  PLR.x=650; PLR.y=430; PLR.carrying=null; PLR.dir='down';
   BABY.state='happy'; SPOUSE.present=false;
   activeEvents=[];
   nightRoutine=NIGHT_STEPS.map(s=>({...s,done:false}));
