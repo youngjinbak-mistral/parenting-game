@@ -200,9 +200,14 @@ document.addEventListener('keydown',e=>{
     if(gs==='play')interact();
     else if(gs==='over'||gs==='win')resetGame();
   }
+  if(e.code==='KeyX'&&gs==='play'&&PLR.carrying){
+    const it=ITEMS[PLR.carrying]; if(it) it.avail=true;
+    showFlash(it?it.e+' '+it.name+' 내려놨어요':'내려놨어요');
+    PLR.carrying=null;
+  }
   if(gs==='select'){
-    if(e.code==='ArrowLeft'||e.code==='KeyA')selectedChar='father';
-    if(e.code==='ArrowRight'||e.code==='KeyD')selectedChar='mother';
+    if(e.code==='ArrowLeft')selectedChar='father';
+    if(e.code==='ArrowRight')selectedChar='mother';
     if(e.code==='Space'||e.code==='Enter')startGame();
   }
   e.preventDefault();
@@ -336,239 +341,298 @@ function drawMotherChar(x,y,dir,wf){
 }
 
 // ── ROOM DRAWING ──────────────────────────────────
-function drawRooms(){
-  // 1. Background (all walls = warm dark)
-  cx.fillStyle='#4A3420'; cx.fillRect(0,UI_H,W,H-UI_H);
+// Helper: draw a furniture piece with depth illusion (top view + south shadow edge)
+function furn(x,y,w,h,topCol,edgeCol,shadowAlpha=0.22,edgeH=5){
+  // Drop shadow
+  cx.fillStyle=`rgba(0,0,0,${shadowAlpha})`;
+  cx.fillRect(x+edgeH,y+h+edgeH,w,4);
+  // Top face
+  cx.fillStyle=topCol; cx.fillRect(x,y,w,h);
+  // South edge (depth)
+  cx.fillStyle=edgeCol; cx.fillRect(x,y+h,w,edgeH);
+  // Outline
+  cx.strokeStyle='rgba(0,0,0,0.25)'; cx.lineWidth=1;
+  cx.strokeRect(x+0.5,y+0.5,w-1,h+edgeH-1);
+}
 
-  // 2. Floor for each room
-  const FLOORS={
-    bathroom:'#E4EEF4', entry:'#C8B890', baby:'#F0E8F8',
-    kitchen:'#EDE8E0',  living:'#C8A86C'
-  };
-  const FLOOR_ACCENT={
-    bathroom:'#D0E0EC', entry:'#B8A878', baby:'#E4D8F0',
-    kitchen:'#E4DED6',  living:'#B89050'
+function drawRooms(){
+  // 1. Wall base — warm dark brown
+  const wallGrad=cx.createLinearGradient(0,UI_H,0,H);
+  wallGrad.addColorStop(0,'#5C3D22'); wallGrad.addColorStop(1,'#3A2410');
+  cx.fillStyle=wallGrad; cx.fillRect(0,UI_H,W,H-UI_H);
+  // Wall texture: subtle vertical grain
+  cx.strokeStyle='rgba(0,0,0,0.08)'; cx.lineWidth=1;
+  for(let wx=0;wx<W;wx+=18){cx.beginPath();cx.moveTo(wx,UI_H);cx.lineTo(wx,H);cx.stroke();}
+
+  // 2. Per-room floors with gradient + texture
+  const ROOM_CFG={
+    bathroom:{base:'#E8F2F8',mid:'#D4E8F2',line:'#C0D8EC',lineStep:18,lineDir:'grid'},
+    entry:   {base:'#C0AE82',mid:'#B09A6E',line:'#A08A5A',lineStep:14,lineDir:'h'},
+    baby:    {base:'#F4EAF8',mid:'#E8DAEE',line:'#D8C8E8',lineStep:0,lineDir:'none'},
+    kitchen: {base:'#EAE4D8',mid:'#DED8CC',line:'#CCCABC',lineStep:22,lineDir:'grid'},
+    living:  {base:'#D4A86C',mid:'#C09050',line:'#B08040',lineStep:12,lineDir:'h'},
   };
   Object.entries(RM).forEach(([name,r])=>{
+    const cfg=ROOM_CFG[name];
     const ir=innerRoom(r);
-    cx.fillStyle=FLOORS[name];
-    cx.fillRect(ir.x,ir.y,ir.w,ir.h);
-    // Floor texture lines
-    cx.strokeStyle=FLOOR_ACCENT[name]; cx.lineWidth=1; cx.globalAlpha=0.5;
-    if(name==='bathroom'){
-      // Grid tiles 20px
-      for(let gx=ir.x;gx<ir.x+ir.w;gx+=20)
-        {cx.beginPath();cx.moveTo(gx,ir.y);cx.lineTo(gx,ir.y+ir.h);cx.stroke();}
-      for(let gy=ir.y;gy<ir.y+ir.h;gy+=20)
-        {cx.beginPath();cx.moveTo(ir.x,gy);cx.lineTo(ir.x+ir.w,gy);cx.stroke();}
-    } else if(name==='living'||name==='entry'){
-      // Wood planks (horizontal)
-      for(let gy=ir.y+16;gy<ir.y+ir.h;gy+=16)
-        {cx.beginPath();cx.moveTo(ir.x,gy);cx.lineTo(ir.x+ir.w,gy);cx.stroke();}
-    } else if(name==='kitchen'){
-      // Larger tiles
-      for(let gx=ir.x;gx<ir.x+ir.w;gx+=28)
-        {cx.beginPath();cx.moveTo(gx,ir.y);cx.lineTo(gx,ir.y+ir.h);cx.stroke();}
-      for(let gy=ir.y;gy<ir.y+ir.h;gy+=28)
-        {cx.beginPath();cx.moveTo(ir.x,gy);cx.lineTo(ir.x+ir.w,gy);cx.stroke();}
-    }
-    cx.globalAlpha=1;
-  });
-
-  // 3. Clear doorways (erase wall with neighbouring floor)
-  DOORWAYS.forEach(d=>{
-    // Sample color from both sides and pick the lighter
-    cx.fillStyle=FLOORS['entry']; // safe default
-    for(const [name,r] of Object.entries(RM)){
-      const ir=innerRoom(r);
-      const cx2=d.x+d.w/2, cy2=d.y+d.h/2;
-      if(cx2>ir.x&&cx2<ir.x+ir.w&&cy2>ir.y&&cy2<ir.y+ir.h){
-        cx.fillStyle=FLOORS[name]; break;
+    // Radial gradient floor: lighter center, slightly darker edges
+    const fg=cx.createRadialGradient(
+      ir.x+ir.w/2,ir.y+ir.h/2,0,
+      ir.x+ir.w/2,ir.y+ir.h/2,Math.max(ir.w,ir.h)*0.7
+    );
+    fg.addColorStop(0,cfg.base); fg.addColorStop(1,cfg.mid);
+    cx.fillStyle=fg; cx.fillRect(ir.x,ir.y,ir.w,ir.h);
+    // Texture lines
+    cx.strokeStyle=cfg.line; cx.lineWidth=1; cx.globalAlpha=0.6;
+    if(cfg.lineDir==='grid'||cfg.lineDir==='h'){
+      for(let gy=ir.y+cfg.lineStep;gy<ir.y+ir.h;gy+=cfg.lineStep){
+        cx.beginPath();cx.moveTo(ir.x,gy);cx.lineTo(ir.x+ir.w,gy);cx.stroke();
       }
     }
-    cx.fillRect(d.x, d.y, d.w, d.h);
-    // Subtle door-frame shadows on sides
-    cx.fillStyle='rgba(0,0,0,0.12)';
-    if(d.w > d.h){ // horizontal doorway — shadow top/bottom edges
-      cx.fillRect(d.x,d.y,d.w,3);
-      cx.fillRect(d.x,d.y+d.h-3,d.w,3);
-    } else {       // vertical doorway — shadow left/right edges
-      cx.fillRect(d.x,d.y,3,d.h);
-      cx.fillRect(d.x+d.w-3,d.y,3,d.h);
+    if(cfg.lineDir==='grid'){
+      for(let gx=ir.x+cfg.lineStep;gx<ir.x+ir.w;gx+=cfg.lineStep){
+        cx.beginPath();cx.moveTo(gx,ir.y);cx.lineTo(gx,ir.y+ir.h);cx.stroke();
+      }
     }
+    cx.globalAlpha=1;
+    // Baseboard (inner wall edge) — lighter strip along all wall edges
+    cx.fillStyle='rgba(255,255,255,0.12)';
+    cx.fillRect(ir.x,ir.y,ir.w,2); cx.fillRect(ir.x,ir.y,2,ir.h);
+    cx.fillStyle='rgba(0,0,0,0.15)';
+    cx.fillRect(ir.x,ir.y+ir.h-2,ir.w,2); cx.fillRect(ir.x+ir.w-2,ir.y,2,ir.h);
   });
 
-  // 4. Room labels
+  // 3. Doorways — blend with adjacent floor, add frame trim
+  const DOOR_FILLS={
+    0:'#D4E8F2',1:'#B09A6E',2:'#DED8CC',3:'#B09A6E',4:'#C09050',5:'#B88040'
+  };
+  DOORWAYS.forEach((d,i)=>{
+    cx.fillStyle=DOOR_FILLS[i]||'#C0B080'; cx.fillRect(d.x,d.y,d.w,d.h);
+    // Door frame trim
+    cx.fillStyle='rgba(80,50,20,0.35)';
+    if(d.w>d.h){ cx.fillRect(d.x,d.y,d.w,3); cx.fillRect(d.x,d.y+d.h-3,d.w,3); }
+    else        { cx.fillRect(d.x,d.y,3,d.h); cx.fillRect(d.x+d.w-3,d.y,3,d.h); }
+  });
+
+  // 4. Room labels (subtle)
   const LABELS={baby:'아기방',kitchen:'부엌',living:'거실',bathroom:'욕실',entry:'현관'};
-  cx.textAlign='center'; cx.font='10px monospace'; cx.globalAlpha=0.3;
+  cx.textAlign='center'; cx.font='bold 11px sans-serif'; cx.globalAlpha=0.18;
   Object.entries(RM).forEach(([name,r])=>{
-    cx.fillStyle='#2A1A0A';
-    cx.fillText(LABELS[name]||'',r.x+r.w/2,r.y+r.h-10);
+    cx.fillStyle='#1A0A00';
+    cx.fillText(LABELS[name]||'',r.x+r.w/2,r.y+r.h-8);
   });
   cx.globalAlpha=1;
 
-  // 5. Furniture
   drawFurniture();
 }
 
 function drawFurniture(){
-  cx.textAlign='center';
+  cx.textAlign='center'; cx.lineWidth=1;
 
   // ── LIVING ROOM ──────────────────────────────────
   const LR=RM.living;
-  const lx=LR.x+WALL, ly=LR.y+WALL;
-  const lw=LR.w-WALL*2, lh=LR.h-WALL*2;
-  // Rug
-  cx.fillStyle='rgba(140,80,50,0.25)';
-  cx.fillRect(lx+30,ly+lh-170,260,130);
-  cx.strokeStyle='rgba(140,80,50,0.5)'; cx.lineWidth=3;
-  cx.strokeRect(lx+38,ly+lh-162,244,114);
-  // Sofa (L-shape feel) — against left wall
-  cx.fillStyle='#7A5C3C'; cx.fillRect(lx,ly+lh-120,200,80);
-  cx.fillStyle='#9A7A5A'; cx.fillRect(lx,ly+lh-120,200,22);// back
-  cx.fillStyle='#8A6A4A'; cx.fillRect(lx,ly+lh-120,16,80); // left arm
-  cx.fillStyle='#8A6A4A'; cx.fillRect(lx+184,ly+lh-120,16,80);// right arm
-  // Cushions
-  cx.fillStyle='#C8A07A';
-  cx.fillRect(lx+20,ly+lh-100,55,60);
-  cx.fillRect(lx+82,ly+lh-100,55,60);
-  cx.fillRect(lx+144,ly+lh-100,42,60);
-  // Coffee table
-  cx.fillStyle='#8B6540'; cx.fillRect(lx+40,ly+lh-55,160,36);
-  cx.fillStyle='#A07850'; cx.fillRect(lx+42,ly+lh-53,156,32);
-  // TV unit on right wall
-  cx.fillStyle='#3A2810'; cx.fillRect(lx+lw-130,ly+10,118,55);
-  cx.fillStyle='#0A0A18'; cx.fillRect(lx+lw-126,ly+14,110,42);
-  // TV glow
-  const tvGl=cx.createLinearGradient(lx+lw-126,ly+14,lx+lw-16,ly+56);
-  tvGl.addColorStop(0,'rgba(60,80,180,0.4)');tvGl.addColorStop(1,'rgba(80,120,220,0.2)');
-  cx.fillStyle=tvGl; cx.fillRect(lx+lw-126,ly+14,110,42);
-  // Dog bed (corner)
-  cx.fillStyle='#9A8060'; cx.fillRect(lx+lw-90,ly+lh-80,70,55);
-  cx.fillStyle='#B09A78'; cx.fillRect(lx+lw-87,ly+lh-77,64,49);
-  cx.fillStyle='rgba(180,160,120,0.6)'; cx.fillRect(lx+lw-85,ly+lh-72,60,30);
-  cx.font='11px serif'; cx.fillText('🐾',lx+lw-55,ly+lh-52);
+  const lx=LR.x+WALL, ly=LR.y+WALL, lw=LR.w-WALL*2, lh=LR.h-WALL*2;
+
+  // Rug — patterned
+  cx.fillStyle='#9B6B3F'; cx.globalAlpha=0.18; cx.fillRect(lx+20,ly+lh-168,250,128);
+  cx.strokeStyle='#7A4C28'; cx.lineWidth=2.5; cx.globalAlpha=0.25;
+  cx.strokeRect(lx+26,ly+lh-162,238,116);
+  cx.strokeRect(lx+34,ly+lh-154,222,100);
+  cx.globalAlpha=1; cx.lineWidth=1;
+
+  // Sofa — back cushion + seat + arms
+  furn(lx,  ly+lh-115, 210, 18, '#8C6B4A','#6A4E32',0.18,4); // back
+  furn(lx,  ly+lh-98,  210, 72, '#7A5A38','#5A3E22',0.2,6);  // seat base
+  furn(lx,  ly+lh-100, 14,  80, '#8C6B4A','#6A4E32',0.1,4);  // left arm
+  furn(lx+196,ly+lh-100,14, 80, '#8C6B4A','#6A4E32',0.1,4);  // right arm
+  // Cushions on sofa
+  ['#D4A07A','#C8906A','#D4A07A'].forEach((col,i)=>{
+    furn(lx+16+i*63, ly+lh-95, 55, 62, col, '#A87050', 0.12, 3);
+  });
+
+  // Coffee table (round top illusion via rect+ellipse)
+  furn(lx+30,ly+lh-56,160,34,'#A07840','#785830',0.18,5);
+  // Vase on table
+  cx.fillStyle='#6888B0'; cx.beginPath(); cx.ellipse(lx+180,ly+lh-46,8,12,0,0,Math.PI*2); cx.fill();
+  cx.fillStyle='#88AACC'; cx.beginPath(); cx.ellipse(lx+180,ly+lh-54,6,5,0,0,Math.PI*2); cx.fill();
+
+  // TV stand + TV
+  furn(lx+lw-135,ly+6, 125, 20, '#3A2810','#28180A',0.25,4); // stand
+  furn(lx+lw-133,ly+24, 121, 48, '#1A1A28','#0E0E18',0.3,3); // screen bezel
+  const tvG=cx.createLinearGradient(lx+lw-130,ly+26,lx+lw-15,ly+68);
+  tvG.addColorStop(0,'#1E3875'); tvG.addColorStop(0.5,'#2850A0'); tvG.addColorStop(1,'#1030A0');
+  cx.fillStyle=tvG; cx.fillRect(lx+lw-130,ly+26,118,46); // screen
+  cx.fillStyle='rgba(255,255,255,0.08)'; cx.fillRect(lx+lw-130,ly+26,118,12); // glare
+
+  // Dog bed
+  furn(lx+lw-85,ly+lh-82,70,55,'#B09870','#8A7450',0.2,5);
+  cx.fillStyle='#C8B08A'; cx.beginPath(); cx.ellipse(lx+lw-50,ly+lh-55,28,20,0,0,Math.PI*2); cx.fill();
+  cx.font='14px serif'; cx.fillText('🐾',lx+lw-50,ly+lh-48);
+
+  // Plant in corner
+  cx.fillStyle='#5A3A18'; cx.fillRect(lx+2,ly+lh-35,20,30);
+  cx.fillStyle='#2D6830'; cx.beginPath(); cx.arc(lx+12,ly+lh-38,22,0,Math.PI*2); cx.fill();
+  cx.fillStyle='#3A8040'; cx.beginPath(); cx.arc(lx+10,ly+lh-55,14,0,Math.PI*2); cx.fill();
 
   // ── KITCHEN ──────────────────────────────────────
   const KR=RM.kitchen;
-  const kx=KR.x+WALL, ky=KR.y+WALL;
-  const kw=KR.w-WALL*2, kh=KR.h-WALL*2;
-  // Counter top (along left wall)
-  cx.fillStyle='#C0B8A8'; cx.fillRect(kx,ky,65,kh);
-  cx.fillStyle='#D0C8B8'; cx.fillRect(kx,ky,65,10);
-  cx.fillStyle='#B0A898'; cx.fillRect(kx+62,ky,3,kh); // counter edge shadow
-  // Fridge (top-left)
-  cx.fillStyle='#DCDCDC'; cx.fillRect(kx+2,ky+2,58,100);
-  cx.fillStyle='#F0F0F0'; cx.fillRect(kx+4,ky+4,54,44);  // freezer
-  cx.fillStyle='#C4C4C4'; cx.fillRect(kx+4,ky+50,54,50); // fridge
-  cx.fillStyle='#8A8A8A'; cx.fillRect(kx+54,ky+28,5,10); // handle
-  cx.fillStyle='#8A8A8A'; cx.fillRect(kx+54,ky+68,5,16);
-  // Stove/hob
-  cx.fillStyle='#888888'; cx.fillRect(kx+2,ky+108,60,65);
-  cx.fillStyle='#666666';
-  [[kx+22,ky+128],[kx+46,ky+128],[kx+22,ky+155],[kx+46,ky+155]].forEach(([bx,by])=>{
-    cx.beginPath();cx.arc(bx,by,11,0,Math.PI*2);cx.fill();
-    cx.fillStyle='#505050';cx.beginPath();cx.arc(bx,by,5,0,Math.PI*2);cx.fill();
-    cx.fillStyle='#666666';
+  const kx=KR.x+WALL, ky=KR.y+WALL, kw=KR.w-WALL*2, kh=KR.h-WALL*2;
+
+  // Counter along left wall
+  furn(kx,ky, 68, kh, '#C8C0A8','#A8A088',0.15,0);
+  cx.fillStyle='#D8D0B8'; cx.fillRect(kx,ky,68,8); // counter top lip
+
+  // Fridge
+  furn(kx+2,ky+2, 60, 95, '#E8E8E8','#C0C0C0',0.18,5);
+  cx.fillStyle='#F4F4F4'; cx.fillRect(kx+5,ky+5,54,40); // freezer compartment
+  cx.fillStyle='rgba(0,0,0,0.1)'; cx.fillRect(kx+5,ky+44,54,2); // divider
+  cx.fillStyle='#CCCCCC'; cx.fillRect(kx+58,ky+28,4,10); // handle
+  cx.fillStyle='#CCCCCC'; cx.fillRect(kx+58,ky+65,4,14);
+
+  // Stove with glowing burners
+  furn(kx+4,ky+100, 60, 70, '#909090','#606060',0.2,4);
+  [[kx+22,ky+118],[kx+48,ky+118],[kx+22,ky+148],[kx+48,ky+148]].forEach(([bx2,by2],i)=>{
+    cx.fillStyle='#505050'; cx.beginPath(); cx.arc(bx2,by2,12,0,Math.PI*2); cx.fill();
+    cx.fillStyle='#333'; cx.beginPath(); cx.arc(bx2,by2,7,0,Math.PI*2); cx.fill();
+    // Glowing ring (orange when "on")
+    cx.strokeStyle='rgba(255,140,40,0.6)'; cx.lineWidth=2;
+    cx.beginPath(); cx.arc(bx2,by2,10,0,Math.PI*2); cx.stroke();
+    cx.lineWidth=1;
   });
-  // Kitchen counter along bottom wall
-  cx.fillStyle='#C8C0B0'; cx.fillRect(kx+68,ky+kh-45,kw-68,45);
-  cx.fillStyle='#D8D0C0'; cx.fillRect(kx+68,ky+kh-45,kw-68,10);
-  // Sink
-  cx.fillStyle='#B8C8D0'; cx.fillRect(kx+kw-90,ky+2,80,55);
-  cx.fillStyle='#98B4C0'; cx.fillRect(kx+kw-86,ky+6,72,44);
-  cx.fillStyle='#C8D8E0'; cx.fillRect(kx+kw-74,ky+8,20,20); // inner basin
-  // Faucet
-  cx.fillStyle='#C0C0C0'; cx.fillRect(kx+kw-62,ky+2,4,8);
-  // Kitchen items positions hint
-  cx.font='11px serif'; cx.fillText('🍼',60,290); // bottle on counter
-  cx.fillText('🍽',55,280);  // plate by stove
+
+  // Sink unit (top wall)
+  furn(kx+kw-98,ky, 90, 60, '#C0CACE','#90A0A8',0.18,4);
+  cx.fillStyle='#8AAAB4'; cx.beginPath(); cx.ellipse(kx+kw-54,ky+32,36,22,0,0,Math.PI*2); cx.fill(); // basin
+  cx.fillStyle='rgba(180,220,240,0.5)'; cx.beginPath(); cx.ellipse(kx+kw-54,ky+32,30,17,0,0,Math.PI*2); cx.fill(); // water
+  cx.fillStyle='#C8C8C8'; cx.fillRect(kx+kw-56,ky,4,10); // faucet
+
+  // Bottom counter shelf
+  furn(kx+70,ky+kh-40, kw-70, 36, '#C8C0A8','#A8A088',0.12,0);
+  cx.fillStyle='#D8D0B8'; cx.fillRect(kx+70,ky+kh-40,kw-70,7);
+
+  // Microwave on counter
+  furn(kx+kw-80,ky+kh-85, 65, 40, '#D0D0D0','#A8A8A8',0.15,4);
+  cx.fillStyle='#1A1A1A'; cx.fillRect(kx+kw-77,ky+kh-83,40,36);
+  cx.fillStyle='rgba(50,180,80,0.8)'; cx.fillText('12:00',kx+kw-57,ky+kh-61);
 
   // ── BABY ROOM ────────────────────────────────────
   const BR=RM.baby;
-  const bx=BR.x+WALL, by=BR.y+WALL;
-  const bw=BR.w-WALL*2, bh=BR.h-WALL*2;
-  // Crib (right side) — where BABY character is
-  const cribX=bx+bw-175, cribY=by+8;
-  cx.fillStyle='#D4C8B0'; cx.fillRect(cribX,cribY,160,bh-16);  // crib outer
-  cx.fillStyle='#EAE4D8'; cx.fillRect(cribX+6,cribY+6,148,bh-28); // inner
-  // Crib bars (vertical)
-  cx.fillStyle='#C8BFAA';
-  for(let i=1;i<8;i++) cx.fillRect(cribX+i*18,cribY+6,4,bh-28);
-  // Crib mattress
-  cx.fillStyle='#FEFAF6'; cx.fillRect(cribX+6,cribY+bh-55,148,36);
-  cx.fillStyle='#F4ECE0'; cx.fillRect(cribX+8,cribY+bh-53,144,32);
-  // Mobile above crib
-  cx.strokeStyle='#E0A0C0'; cx.lineWidth=1.5;
-  cx.beginPath(); cx.moveTo(cribX+80,cribY); cx.lineTo(cribX+80,by-6); cx.stroke();
-  cx.beginPath(); cx.moveTo(cribX+40,cribY); cx.lineTo(cribX+40,by-6); cx.stroke();
-  cx.beginPath(); cx.moveTo(cribX+120,cribY); cx.lineTo(cribX+120,by-6); cx.stroke();
-  cx.font='9px serif';
-  cx.fillText('🌙',cribX+40,by-2); cx.fillText('⭐',cribX+80,by);  cx.fillText('🌸',cribX+120,by-2);
-  // Changing table (left side of baby room)
-  cx.fillStyle='#C8C0B0'; cx.fillRect(bx+10,by+8,110,75);
-  cx.fillStyle='#EAE4DC'; cx.fillRect(bx+10,by+8,110,14); // top pad
-  cx.fillStyle='#E8DFD5'; cx.fillRect(bx+12,by+9,106,10);
-  cx.font='14px serif'; cx.fillText('🧷',bx+65,by+65);
-  // Toy shelf (wall)
-  cx.fillStyle='#C4A878'; cx.fillRect(bx+130,by+8,120,18); // shelf board
-  cx.fillStyle='rgba(0,0,0,0.1)'; cx.fillRect(bx+130,by+24,120,4); // shadow
-  cx.font='12px serif'; cx.fillText('🧸 🪆 🎀',bx+190,by+22);
-  // Baby room rug
-  cx.fillStyle='rgba(220,170,210,0.3)'; cx.fillRect(bx+10,by+90,bw-190,bh-100);
-  cx.strokeStyle='rgba(200,140,190,0.4)'; cx.lineWidth=2;
-  cx.strokeRect(bx+16,by+96,bw-202,bh-112);
+  const bx=BR.x+WALL, by2=BR.y+WALL, bw=BR.w-WALL*2, bh=BR.h-WALL*2;
+
+  // Rug (soft lavender)
+  cx.fillStyle='rgba(180,140,200,0.22)'; cx.fillRect(bx+10,by2+bh-110,300,98);
+  cx.strokeStyle='rgba(160,120,180,0.4)'; cx.lineWidth=2;
+  cx.strokeRect(bx+16,by2+bh-104,288,86);
+  cx.lineWidth=1;
+
+  // Crib (right side, open-top-view)
+  const cX=bx+bw-170, cY=by2+6;
+  furn(cX,cY,160,bh-14,'#EAE0CC','#C4B898',0.2,6); // crib outer frame
+  cx.fillStyle='#F8F4EE'; cx.fillRect(cX+10,cY+10,140,bh-30); // interior
+  // Crib bars
+  cx.strokeStyle='#C8BC9A'; cx.lineWidth=3.5;
+  for(let i=0;i<=8;i++){
+    cx.beginPath();cx.moveTo(cX+10+i*17,cY+10);cx.lineTo(cX+10+i*17,cY+bh-20);cx.stroke();
+  }
+  cx.lineWidth=1;
+  // Mattress + blanket
+  cx.fillStyle='#FFFAF4'; cx.fillRect(cX+12,cY+bh-55,136,36);
+  const blankG=cx.createLinearGradient(cX+12,0,cX+148,0);
+  blankG.addColorStop(0,'#F0C0D0'); blankG.addColorStop(1,'#E0A8C0');
+  cx.fillStyle=blankG; cx.fillRect(cX+12,cY+bh-50,136,25);
+  // Mobile strings + icons
+  cx.strokeStyle='#D8A0BC'; cx.lineWidth=1.5;
+  [cX+40,cX+80,cX+120].forEach((mx,i)=>{
+    cx.beginPath();cx.moveTo(mx,cY);cx.lineTo(mx,cY-18);cx.stroke();
+  });
+  cx.font='12px serif';
+  cx.fillText('🌙',cX+40,cY-15); cx.fillText('⭐',cX+80,cY-18); cx.fillText('🌸',cX+120,cY-15);
+  cx.lineWidth=1;
+
+  // Changing table
+  furn(bx+8,by2+6, 115, 72, '#C8C0B0','#A8A090',0.15,5);
+  cx.fillStyle='#EAE4DC'; cx.fillRect(bx+8,by2+6,115,12); // padded top
+  cx.fillStyle='#F0ECE4'; cx.fillRect(bx+10,by2+7,111,8);
+  cx.font='16px serif'; cx.fillText('🧷',bx+65,by2+65);
+
+  // Toy shelf (wall mounted)
+  furn(bx+135,by2+6, 130, 15, '#C8A878','#A08050',0.1,3);
+  cx.font='13px serif'; cx.fillText('🧸 🪆',bx+200,by2+19);
+
+  // Wardrobe
+  furn(bx+bw-170-180,by2+6,80,bh-14,'#D4C8A8','#B0A480',0.2,6);
+  cx.fillStyle='rgba(0,0,0,0.08)'; cx.fillRect(bx+bw-350+40,by2+10,2,bh-24); // door split
+  cx.fillStyle='#C0A860'; cx.beginPath(); cx.arc(bx+bw-350+36,by2+bh/2,3,0,Math.PI*2); cx.fill();
+  cx.fillStyle='#C0A860'; cx.beginPath(); cx.arc(bx+bw-350+44,by2+bh/2,3,0,Math.PI*2); cx.fill();
 
   // ── BATHROOM ─────────────────────────────────────
   const BTHR=RM.bathroom;
-  const tx=BTHR.x+WALL, ty=BTHR.y+WALL;
-  const tw=BTHR.w-WALL*2, th=BTHR.h-WALL*2;
-  // Bathtub (bottom)
-  cx.fillStyle='#C8DCE8'; cx.fillRect(tx,ty+th-80,tw,72);
-  cx.fillStyle='#A8C8DC'; cx.fillRect(tx+5,ty+th-76,tw-10,62);
+  const tx=BTHR.x+WALL, ty=BTHR.y+WALL, tw=BTHR.w-WALL*2, th=BTHR.h-WALL*2;
+
+  // Bathtub — clawfoot style top view
+  furn(tx+2,ty+th-82, tw-4, 72, '#D8ECF4','#A8CCDC',0.2,6);
+  const bathG=cx.createRadialGradient(tx+tw/2,ty+th-46,0,tx+tw/2,ty+th-46,36);
+  bathG.addColorStop(0,'rgba(140,200,230,0.6)'); bathG.addColorStop(1,'rgba(100,170,210,0.2)');
+  cx.fillStyle=bathG; cx.beginPath(); cx.ellipse(tx+tw/2,ty+th-46,tw/2-10,30,0,0,Math.PI*2); cx.fill();
   // Faucet
-  cx.fillStyle='#D0D0D0'; cx.fillRect(tx+tw/2-5,ty+th-82,10,8);
-  cx.fillStyle='#B8B8B8'; cx.beginPath(); cx.arc(tx+tw/2,ty+th-82,5,Math.PI,0); cx.fill();
-  // Toilet (top right)
-  cx.fillStyle='#EEEEED'; cx.fillRect(tx+tw-55,ty+8,48,32); // tank
-  cx.fillStyle='#F2F1F0';
-  cx.beginPath(); cx.ellipse(tx+tw-30,ty+54,26,32,0,0,Math.PI*2); cx.fill(); // bowl
-  cx.fillStyle='#E8E7E6';
-  cx.beginPath(); cx.ellipse(tx+tw-30,ty+54,22,28,0,0,Math.PI*2); cx.fill(); // inner
-  // Sink (top left)
-  cx.fillStyle='#D8E8F0'; cx.fillRect(tx+8,ty+8,55,42);
-  cx.fillStyle='#B8D0E0'; cx.fillRect(tx+12,ty+12,47,32);
-  // Mirror above sink
-  cx.fillStyle='rgba(180,210,230,0.5)';cx.fillRect(tx+8,ty-8,55,10);
-  // Soap position
-  cx.font='13px serif'; cx.fillText('🧴',tx+37,ty+45);
+  cx.fillStyle='#C0C0C8'; cx.fillRect(tx+tw/2-6,ty+th-85,12,8);
+  cx.fillStyle='#D0D0D8'; cx.beginPath(); cx.arc(tx+tw/2,ty+th-85,6,Math.PI,0); cx.fill();
+
+  // Toilet
+  furn(tx+tw-56,ty+6, 50, 28, '#F0EFEE','#D0CFCE',0.15,4); // tank
+  cx.fillStyle='#F4F3F2';
+  cx.beginPath(); cx.ellipse(tx+tw-30,ty+50,26,34,0,0,Math.PI*2); cx.fill(); // bowl
+  cx.strokeStyle='rgba(0,0,0,0.2)'; cx.beginPath(); cx.ellipse(tx+tw-30,ty+50,26,34,0,0,Math.PI*2); cx.stroke();
+  cx.fillStyle='#EEEDEC';
+  cx.beginPath(); cx.ellipse(tx+tw-30,ty+50,21,29,0,0,Math.PI*2); cx.fill();
+
+  // Sink vanity
+  furn(tx+4,ty+4, 60, 48, '#D0E0E8','#A8C0CC',0.15,5);
+  cx.fillStyle='#8AAAB4'; cx.beginPath(); cx.ellipse(tx+34,ty+28,24,16,0,0,Math.PI*2); cx.fill();
+  cx.fillStyle='rgba(180,220,240,0.6)'; cx.beginPath(); cx.ellipse(tx+34,ty+28,19,12,0,0,Math.PI*2); cx.fill();
+  // Faucet
+  cx.fillStyle='#C0C0C8'; cx.fillRect(tx+32,ty+4,4,8);
+
+  // Towel rack on wall
+  cx.strokeStyle='#B0A898'; cx.lineWidth=3;
+  cx.beginPath(); cx.moveTo(tx+6,ty+58); cx.lineTo(tx+50,ty+58); cx.stroke();
+  cx.lineWidth=1;
+  cx.fillStyle='#F0E8E0'; cx.fillRect(tx+10,ty+56,34,8); // towel
+  cx.fillStyle='rgba(220,180,160,0.5)'; // towel stripe
+  cx.fillRect(tx+10,ty+56,4,8); cx.fillRect(tx+40,ty+56,4,8);
 
   // ── ENTRY / HALLWAY ──────────────────────────────
   const ENT=RM.entry;
-  const ex=ENT.x+WALL, ey=ENT.y+WALL;
-  const ew=ENT.w-WALL*2, eh=ENT.h-WALL*2;
-  // Front door (top)
-  cx.fillStyle='#6A4A28'; cx.fillRect(ex+8,ey,ew-16,38);
-  cx.fillStyle='#8A6540'; cx.fillRect(ex+10,ey+2,ew-20,32);
+  const ex=ENT.x+WALL, ey=ENT.y+WALL, ew=ENT.w-WALL*2, eh=ENT.h-WALL*2;
+
+  // Front door
+  furn(ex+6,ey, ew-12, 40, '#8A6040','#6A4020',0.25,5);
+  cx.fillStyle='#A07848'; cx.fillRect(ex+8,ey+2,ew-16,36);
   // Door panels
-  cx.fillStyle='rgba(0,0,0,0.12)';
-  cx.fillRect(ex+12,ey+4,ew/2-18,13); cx.fillRect(ex+ew/2+2,ey+4,ew/2-18,13);
-  cx.fillRect(ex+12,ey+20,ew/2-18,12); cx.fillRect(ex+ew/2+2,ey+20,ew/2-18,12);
-  cx.fillStyle='#C8A040'; cx.fillRect(ex+ew/2-5,ey+16,10,8); // door knob
-  // Coat hooks (right wall)
-  cx.fillStyle='#5A3A18';
-  [ey+55,ey+80,ey+105].forEach(hy=>{
-    cx.beginPath();cx.arc(ex+ew-8,hy,5,0,Math.PI*2);cx.fill();
-    cx.fillStyle='#8B6B4A';
-    cx.beginPath();cx.arc(ex+ew-8,hy,3,0,Math.PI*2);cx.fill();
-    cx.fillStyle='#5A3A18';
+  cx.fillStyle='rgba(0,0,0,0.15)';
+  cx.fillRect(ex+10,ey+4,ew/2-16,13); cx.fillRect(ex+ew/2+2,ey+4,ew/2-16,13);
+  cx.fillRect(ex+10,ey+20,ew/2-16,16); cx.fillRect(ex+ew/2+2,ey+20,ew/2-16,16);
+  cx.fillStyle='#D4A040'; cx.beginPath(); cx.arc(ex+ew/2+2,ey+21,4,0,Math.PI*2); cx.fill(); // knob
+
+  // Mirror on wall
+  furn(ex+6,ey+48, ew-12, 50, '#B8D0DC','#8AAAB8',0.12,3);
+  cx.fillStyle='rgba(220,240,255,0.4)'; cx.fillRect(ex+8,ey+50,ew-16,20); // reflection
+
+  // Shoe rack
+  furn(ex,ey+eh-32, ew, 28, '#8A6848','#5A4030',0.2,5);
+  cx.fillStyle='rgba(0,0,0,0.12)'; cx.fillRect(ex,ey+eh-32,ew,4);
+  cx.font='11px serif'; cx.fillText('👟 👞',ex+ew/2,ey+eh-14);
+
+  // Hooks on right wall
+  cx.fillStyle='#4A2C0A';
+  [ey+55,ey+78,ey+101].forEach(hy=>{
+    cx.beginPath(); cx.arc(ex+ew+2,hy,5,0,Math.PI*2); cx.fill();
+    cx.fillStyle='#8A6848';
+    cx.beginPath(); cx.arc(ex+ew+2,hy,3,0,Math.PI*2); cx.fill();
+    cx.fillStyle='#4A2C0A';
   });
-  // Shoe rack (bottom)
-  cx.fillStyle='#8A6848'; cx.fillRect(ex,ey+eh-30,ew,25);
-  cx.fillStyle='rgba(0,0,0,0.15)'; cx.fillRect(ex,ey+eh-30,ew,4);
-  cx.font='10px serif'; cx.fillText('👟👞',ex+ew/2,ey+eh-12);
-  // Leash hook
-  cx.font='12px serif'; cx.fillText('🐾',ex+ew-10,ey+50);
+  // Leash on hook
+  cx.font='12px serif'; cx.fillText('🐾',ex+ew+2,ey+48);
 }
 
 // ── ITEMS DRAWING ─────────────────────────────────
@@ -729,8 +793,13 @@ function drawHUD(){
   if(PLR.carrying){
     const it=ITEMS[PLR.carrying];
     cx.font='11px monospace'; cx.fillStyle='#F5EDD8';
-    cx.fillText('들고 있음:',W-80,22);
-    cx.font='20px serif'; cx.fillText(it?it.e:'📦',W-15,32);
+    cx.fillText('들고 있음:',W-105,22);
+    cx.font='20px serif'; cx.fillText(it?it.e:'📦',W-40,32);
+    cx.font='9px monospace'; cx.fillStyle='#FFAA60';
+    cx.fillText('[X] 내려놓기',W-10,46);
+  } else {
+    cx.font='10px monospace'; cx.fillStyle='#705040'; cx.textAlign='right';
+    cx.fillText('[A] 행동  [X] 내려놓기',W-10,46);
   }
   
   // Phase indicator
