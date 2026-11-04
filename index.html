@@ -154,15 +154,15 @@ function isWalkable(px,py,pw=18,ph=18){
 
 // ── ITEMS ─────────────────────────────────────────
 const ITEMS = {
-  bottle:   {x:65, y:300, e:'🍼',name:'Bottle',   col:'#C4E4F2', avail:true},
-  diaper:   {x:430,y:105, e:'🧷',name:'Diaper',   col:'#F0EDE8', avail:true},
-  toy:      {x:880,y:460, e:'🧸',name:'Toy',       col:'#F4BC58', avail:true},
-  groceries:{x:280,y:UI_H+10,e:'🛒',name:'Groceries',col:'#7AAA78',avail:false},
-  plate:    {x:50, y:285, e:'🍽',name:'Meal',      col:'#F2EEE8', avail:true},
-  mop:      {x:320,y:460, e:'🧹',name:'Mop',       col:'#8AB4D0', avail:true},
-  soap:     {x:55, y:175, e:'🧴',name:'Soap',      col:'#D0B4E0', avail:true},
-  leash:    {x:245,y:100, e:'🐾',name:'Leash',     col:'#C49038', avail:true},
-  dog_bowl: {x:260,y:450, e:'🥣',name:'Dog Bowl',  col:'#8EB0C8', avail:true},
+  bottle:   {x:65, y:300, e:'🍼',name:'젖병',   col:'#C4E4F2', avail:true},
+  diaper:   {x:430,y:105, e:'🧷',name:'기저귀',   col:'#F0EDE8', avail:true},
+  toy:      {x:880,y:460, e:'🧸',name:'장난감',       col:'#F4BC58', avail:true},
+  groceries:{x:280,y:UI_H+10,e:'🛒',name:'장보기',col:'#7AAA78',avail:false},
+  plate:    {x:50, y:285, e:'🍽',name:'식사',      col:'#F2EEE8', avail:true},
+  mop:      {x:320,y:460, e:'🧹',name:'걸레',       col:'#8AB4D0', avail:true},
+  soap:     {x:55, y:175, e:'🧴',name:'비누',      col:'#D0B4E0', avail:true},
+  leash:    {x:245,y:100, e:'🐾',name:'목줄',     col:'#C49038', avail:true},
+  dog_bowl: {x:260,y:450, e:'🥣',name:'강아지 밥그릇',  col:'#8EB0C8', avail:true},
 };
 
 // ── GAME STATE ────────────────────────────────────
@@ -418,72 +418,13 @@ function drawItems(){
   }
 }
 
-// ── CHARACTER SPRITES ─────────────────────────────
-function drawPersonHead(x,y,pal,dir,wf){
-  // Hair
-  if(dir==='up'){px(x+1,y,10,2,pal.hair);px(x,y+2,12,4,pal.hair);}
-  else{px(x+2,y,8,2,pal.hair);px(x+1,y+1,10,1,pal.hair);}
-  // Face
-  px(x+1,y+2,10,4,pal.skin);
-  px(x,y+3,1,2,pal.skin); px(x+11,y+3,1,2,pal.skin);
-  if(dir==='up') return;
-  // Eyes + glasses
-  if(pal.glasses){
-    px(x+2,y+3,3,2,pal.glasses); px(x+7,y+3,3,2,pal.glasses);
-    px(x+3,y+3,1,1,'#111'); px(x+8,y+3,1,1,'#111');
-    px(x+5,y+4,2,1,pal.glasses);
-  } else {
-    px(x+2,y+3,2,2,'#333'); px(x+8,y+3,2,2,'#333');
-    px(x+3,y+3,1,1,'#111'); px(x+9,y+3,1,1,'#111');
-  }
-  // Mouth
-  px(x+4,y+5,4,1,'#c07060');
-}
-
-function drawPerson(x,y,pal,dir,wf,isSpouse){
-  const bob=(wf===1)?-1:0;
-  cx.save(); cx.translate(dir==='left'?x+12*P:x,y);
-  if(dir==='left')cx.scale(-1,1);
-  
-  drawPersonHead(0,0+bob,pal,dir,wf);
-  // Neck
-  px(4,6*P+bob,2,1,pal.skin);
-  // Shirt/body
-  if(pal.cardigan){
-    px(1,7*P+bob,10,7,'#C8A0B4'); // base
-    px(1,7*P+bob,10,1,pal.shirt);
-    px(0,8*P+bob,1,6,pal.shirt);  px(11,8*P+bob,1,6,pal.shirt); // sides
-  } else {
-    px(1,7*P+bob,10,7,pal.shirt);
-  }
-  // Hair for mother (long)
-  if(pal.hair&&!pal.glasses){
-    px(0,2*P+bob,1,8,pal.hair); px(11,2*P+bob,1,8,pal.hair);
-  }
-  // Collar
-  px(4,7*P+bob,4,1,'#fff');
-  // Pants
-  const loff = wf===0?[0,2]:[2,0];
-  px(2,14*P+bob+loff[0],4,4,pal.pants);
-  px(6,14*P+bob+loff[1],4,4,pal.pants);
-  // Shoes
-  px(1,17*P+bob,5,1,'#3d2b1f'); px(6,17*P+bob,5,1,'#3d2b1f');
-  
-  cx.restore();
-  
-  // Carried item
-  if(!isSpouse&&PLR.carrying&&PLR.x===x&&PLR.y===y){
-    const it=ITEMS[PLR.carrying];
-    if(it){cx.font='16px serif';cx.textAlign='center';cx.fillText(it.e,x+18,y-8);}
-  }
-}
 
 function drawFatherSprite(x,y,dir,wf,carrying){
-  drawPerson(x,y,{...PAL.father},dir,wf,false);
+  drawFatherChar(x,y,dir,wf);
   if(carrying){const it=ITEMS[carrying];if(it){cx.font='16px serif';cx.textAlign='center';cx.fillText(it.e,x+18,y-8);}}
 }
 function drawMotherSprite(x,y,dir,wf,carrying){
-  drawPerson(x,y,{...PAL.mother,cardigan:true},dir,wf,false);
+  drawMotherChar(x,y,dir,wf);
   if(carrying){const it=ITEMS[carrying];if(it){cx.font='16px serif';cx.textAlign='center';cx.fillText(it.e,x+18,y-8);}}
 }
 
@@ -560,8 +501,8 @@ function drawDog(x,y,dir,frame){
 }
 
 function drawSpouse(x,y,dir,frame,char){
-  const pal=char==='father'?PAL.spouse_father:PAL.spouse_mother;
-  drawPerson(x,y,{...pal,cardigan:char==='mother'},dir,frame,true);
+  if(char==='father')drawFatherChar(x,y,dir,frame);
+  else drawMotherChar(x,y,dir,frame);
 }
 
 // ── CALLOUT BUBBLES ──────────────────────────────
@@ -694,7 +635,7 @@ function spawnEvent(pool,character,maxActive){
   if(def.item==='groceries') ITEMS.groceries.avail=true;
 }
 function resolveEvent(ev){
-  happiness=Math.min(100,happiness+ev.happyGain);
+  happiness=Math.min(100,happiness+ev.gain);
   activeEvents=activeEvents.filter(e=>e!==ev);
   if(ev.item==='groceries') ITEMS.groceries.avail=false;
   PLR.carrying=null;
@@ -910,10 +851,10 @@ function update(dt){
   for(const ev of activeEvents){
     ev.timer-=dt;
     if(ev.timer<=0){
-      happiness=Math.max(0,happiness-ev.happyLoss);
+      happiness=Math.max(0,happiness-ev.loss);
       shake();
       if(ev.character==='baby') BABY.state='cry';
-      showFlash('😰 실패! -'+ev.happyLoss);
+      showFlash('😰 실패! -'+ev.loss);
       if(ev.item==='groceries') ITEMS.groceries.avail=false;
     }
   }
@@ -1059,16 +1000,12 @@ function renderSelect(ts){
       sel?'rgba(255,208,80,0.15)':'rgba(255,255,255,0.05)',
       sel?'#FFD080':'#604050');
     
-    // Photo or sprite
-    if(char==='father'&&fatherReady){
-      fOCx.clearRect(0,0,12,18); fOCx.drawImage(fatherImg,0,0,12,18);
-      cx.imageSmoothingEnabled=false;
-      cx.drawImage(fOC,cx2-36,cy-80,12*P,18*P);
-    } else {
-      // Draw sprite
-      const pal=char==='father'?PAL.father:PAL.mother;
-      drawPerson(cx2-18,cy-80,{...pal,cardigan:char==='mother'},'down',0,true);
-    }
+    // Draw large pixel-art sprite preview
+    cx.save();
+    cx.scale(2.5,2.5);
+    if(char==='father') drawFatherChar((cx2-18)/2.5,(cy-80)/2.5,'down',0);
+    else drawMotherChar((cx2-18)/2.5,(cy-80)/2.5,'down',0);
+    cx.restore();
     
     cx.font='bold 15px sans-serif'; cx.fillStyle=sel?'#FFD080':'#C0A090'; cx.textAlign='center';
     cx.fillText(char==='father'?'👨 아빠 (Father)':'👩 엄마 (Mother)',cx2,cy+65);
@@ -1133,15 +1070,12 @@ function renderWin(ts){
     cx.fillRect(cf,cy,6,6);
   }
   
-  // Baby photo
+  // Baby photo (draw directly at high quality)
   if(babyReady){
-    bOCx.clearRect(0,0,14,14); bOCx.drawImage(babyImg,0,0,14,14);
-    const photoW=180, photoH=180;
     cx.save();
-    cx.imageSmoothingEnabled=false;
-    // Round clip for photo
+    cx.imageSmoothingEnabled=true;
     cx.beginPath(); cx.arc(W/2,180,90,0,Math.PI*2); cx.clip();
-    cx.drawImage(bOC,W/2-90,90,180,180);
+    cx.drawImage(babyImg,W/2-90,90,180,180);
     cx.restore();
     // Border glow
     cx.strokeStyle='#FFD080'; cx.lineWidth=4;
