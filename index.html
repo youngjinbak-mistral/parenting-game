@@ -232,6 +232,102 @@ function drawRoundRect(x,y,w,h,r,fill,stroke_col){
   if(stroke_col){cx.strokeStyle=stroke_col;cx.lineWidth=2;cx.stroke();}
 }
 
+// ── CHARACTER DRAWING ─────────────────────────────
+function drawFatherChar(x,y,dir,wf){
+  const bob=wf===1?-P:0;
+  cx.save();
+  if(dir==='left'){cx.translate(x+12*P,y+bob);cx.scale(-1,1);}
+  else cx.translate(x,y+bob);
+  // Hair
+  cx.fillStyle='#1C1410';
+  cx.fillRect(P,0,10*P,3*P);
+  cx.fillRect(0,P,P,4*P);
+  cx.fillRect(11*P,P,P,4*P);
+  // Face
+  cx.fillStyle='#F0C49A';
+  cx.fillRect(P,2*P,10*P,5*P);
+  cx.fillRect(0,3*P,P,3*P);
+  cx.fillRect(11*P,3*P,P,3*P);
+  // Glasses
+  cx.fillStyle='#4A3020';
+  cx.fillRect(2*P,3*P,3*P,2*P);
+  cx.fillRect(7*P,3*P,3*P,2*P);
+  cx.fillRect(5*P,4*P,2*P,P);
+  cx.fillStyle='#111';
+  cx.fillRect(3*P,4*P,P,P);
+  cx.fillRect(8*P,4*P,P,P);
+  // Nose+Mouth
+  cx.fillStyle='#D4A070'; cx.fillRect(5*P,5*P,2*P,P);
+  cx.fillStyle='#C07060'; cx.fillRect(4*P,6*P,4*P,P);
+  // Neck
+  cx.fillStyle='#F0C49A'; cx.fillRect(5*P,7*P,2*P,2*P);
+  // Shirt
+  cx.fillStyle='#7B9EBA'; cx.fillRect(2*P,9*P,8*P,6*P);
+  cx.fillStyle='#5A80A0';
+  cx.fillRect(0,9*P,2*P,5*P);
+  cx.fillRect(10*P,9*P,2*P,5*P);
+  cx.fillStyle='#FFFFFF'; cx.fillRect(4*P,9*P,4*P,P);
+  // Belt
+  cx.fillStyle='#3D3030'; cx.fillRect(2*P,15*P,8*P,P);
+  // Pants
+  const la=wf===0?0:P, lb=wf===0?P:0;
+  cx.fillStyle='#4E5E70';
+  cx.fillRect(2*P,15*P+la,4*P,3*P);
+  cx.fillRect(6*P,15*P+lb,4*P,3*P);
+  // Shoes
+  cx.fillStyle='#3D2B1F';
+  cx.fillRect(P,17*P+la,5*P,P);
+  cx.fillRect(6*P,17*P+lb,5*P,P);
+  cx.restore();
+}
+
+function drawMotherChar(x,y,dir,wf){
+  const bob=wf===1?-P:0;
+  cx.save();
+  if(dir==='left'){cx.translate(x+12*P,y+bob);cx.scale(-1,1);}
+  else cx.translate(x,y+bob);
+  // Long dark hair
+  cx.fillStyle='#1A1210';
+  cx.fillRect(P,0,10*P,2*P);
+  cx.fillRect(0,0,2*P,14*P);
+  cx.fillRect(10*P,0,2*P,14*P);
+  // Face
+  cx.fillStyle='#F2C69A'; cx.fillRect(2*P,2*P,8*P,5*P);
+  // Eyes
+  cx.fillStyle='#333';
+  cx.fillRect(3*P,3*P,2*P,2*P);
+  cx.fillRect(7*P,3*P,2*P,2*P);
+  cx.fillStyle='#111';
+  cx.fillRect(4*P,4*P,P,P);
+  cx.fillRect(8*P,4*P,P,P);
+  // Blush
+  cx.fillStyle='rgba(210,120,120,0.45)';
+  cx.fillRect(2*P,5*P,2*P,P);
+  cx.fillRect(8*P,5*P,2*P,P);
+  // Smile
+  cx.fillStyle='#C07080'; cx.fillRect(4*P,6*P,4*P,P);
+  // Neck
+  cx.fillStyle='#F2C69A'; cx.fillRect(5*P,7*P,2*P,2*P);
+  // Cardigan
+  cx.fillStyle='#C8A0B4'; cx.fillRect(2*P,9*P,8*P,6*P);
+  cx.fillStyle='#B08A9A';
+  cx.fillRect(0,9*P,2*P,5*P);
+  cx.fillRect(10*P,9*P,2*P,5*P);
+  cx.fillStyle='#D8C0D0'; cx.fillRect(4*P,9*P,4*P,P);
+  // Belt
+  cx.fillStyle='#504030'; cx.fillRect(2*P,15*P,8*P,P);
+  // Pants
+  const la=wf===0?0:P, lb=wf===0?P:0;
+  cx.fillStyle='#8B7A60';
+  cx.fillRect(2*P,15*P+la,4*P,3*P);
+  cx.fillRect(6*P,15*P+lb,4*P,3*P);
+  // Shoes
+  cx.fillStyle='#5D4A30';
+  cx.fillRect(P,17*P+la,5*P,P);
+  cx.fillRect(6*P,17*P+lb,5*P,P);
+  cx.restore();
+}
+
 // ── ROOM DRAWING ──────────────────────────────────
 function drawRooms(){
   // Draw floors
