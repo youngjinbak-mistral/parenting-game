@@ -160,7 +160,7 @@
     { item: 'diaper', x: 434, y: 70, name: 'CABINET' },
     { item: 'toy', x: 434, y: 138, name: 'TOYBOX' },
     { item: 'grocery', x: 44, y: 152, name: 'DOOR' },
-    { item: 'broom', x: 44, y: 218, name: 'CLOSET' },
+    { item: 'broom', x: 44, y: 190, name: 'CLOSET' },
     { item: 'duck', x: 434, y: 210, name: 'BATH' },
     { item: 'blanket', x: 312, y: 240, name: 'DRESSER' },
   ];
@@ -760,9 +760,17 @@
     const bh = Math.max(28, 12 + lines.length * 10) + (koLines.length ? 9 : 0);
     const x = clamp(who.x, bw / 2 + 4, W - bw / 2 - 4);
     // clamp the TOP edge below the HUD/announce strip so tall bubbles never cover it (y = bottom edge)
+    const intersects = (t) => placed.some((p) =>
+      Math.abs(x - p.x) < (bw + p.bw) / 2 + 4 &&
+      Math.abs((t + bh / 2) - (p.y - p.bh / 2)) < (bh + p.bh) / 2 + 4);
+    const fits = (t) => t >= 46 && t + bh <= H - 8 && !intersects(t);
     let top = clamp(who.y - 38 - bh, 46, Math.max(46, H - 8 - bh));
-    for (const p of placed) { // stack above an already-placed bubble instead of overlapping
-      if (Math.abs(x - p.x) < (bw + p.bw) / 2 + 4 && Math.abs(top + bh - (p.y)) < (bh + p.bh) / 2 + 4) top = p.y - p.bh - 6;
+    if (!fits(top)) { // try above then below each overlapping placed bubble
+      outer: for (const p of placed) {
+        for (const cand of [p.y - p.bh - 6 - bh, p.y + 6]) {
+          if (fits(cand)) { top = cand; break outer; }
+        }
+      }
     }
     top = clamp(top, 46, Math.max(46, H - 8 - bh));
     const y = top + bh;
@@ -974,7 +982,7 @@
   }
 
   function drawTitle() {
-    panel(40, 30, W - 80, H - 60);
+    panel(40, 24, W - 80, H - 48);
     text(UI.title || 'PARENTING', W / 2, 42, 24, '#ffd23f', 'center');
     text('keep your family happy until midnight', W / 2, 74, 8, '#c9c2e8', 'center');
     // dad card
@@ -991,10 +999,20 @@
     ctx.restore();
     drawCharacterSpr('mom_idle', 337, 150, 44);
     text('MOM', 337, 178, 10, chosen === 1 ? '#5eead4' : '#c9c2e8', 'center');
-    text('< >  choose      A / click  start', W / 2, 204, 8, '#ffffff', 'center');
-    text(UI.hint_grab || 'arrows move - A grabs item at a station', W / 2, 220, 7, '#8f99ab', 'center');
-    text(UI.hint_deliver || 'A near a family member delivers - S drops', W / 2, 232, 7, '#8f99ab', 'center');
-    text('survive to 24:00. happiness 0 = game over.', W / 2, 244, 7, '#ff9f43', 'center');
+    const touchMode = (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches)
+      || (typeof 'ontouchstart' in window !== 'undefined' && 'ontouchstart' in window)
+      || (typeof location !== 'undefined' && /[?&]touch=1/.test(location.search));
+    if (touchMode) {
+      text('TAP a card to start', W / 2, 202, 8, '#ffffff', 'center');
+      text('TAP floor: move there', W / 2, 216, 7, '#8f99ab', 'center');
+      text('TAP station / family: go + grab / deliver', W / 2, 228, 7, '#8f99ab', 'center');
+      text('S drops item · survive to 24:00!', W / 2, 238, 7, '#ff9f43', 'center');
+    } else {
+      text('< >  choose      A / click  start', W / 2, 202, 8, '#ffffff', 'center');
+      text(UI.hint_grab || 'arrows move - A grabs item at a station', W / 2, 216, 7, '#8f99ab', 'center');
+      text(UI.hint_deliver || 'A near a family member delivers - S drops', W / 2, 228, 7, '#8f99ab', 'center');
+      text('survive to 24:00. happiness 0 = game over.', W / 2, 240, 7, '#ff9f43', 'center');
+    }
   }
 
   function drawGameOver() {
@@ -1039,7 +1057,7 @@
 
   // ---------------- fit & loop ----------------
   function fit() {
-    const s = Math.min(innerWidth / W, innerHeight / H) * 0.96;
+    const s = Math.min(innerWidth / W, innerHeight / H) * 0.995; // fill the screen (landscape phones especially)
     canvas.style.width = W * s + 'px';
     canvas.style.height = H * s + 'px';
   }
