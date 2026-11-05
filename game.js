@@ -695,11 +695,13 @@
     const bw = clamp(tw + 36, 60, W - 16);
     const bh = Math.max(28, 12 + lines.length * 10) + (koLines.length ? 9 : 0);
     const x = clamp(who.x, bw / 2 + 4, W - bw / 2 - 4);
-    let y = clamp(who.y - 38 - bh, 46, H - 8); // 46 = below the HUD/announce strip
+    // clamp the TOP edge below the HUD/announce strip so tall bubbles never cover it (y = bottom edge)
+    let top = clamp(who.y - 38 - bh, 46, Math.max(46, H - 8 - bh));
     for (const p of placed) { // stack above an already-placed bubble instead of overlapping
-      if (Math.abs(x - p.x) < (bw + p.bw) / 2 + 4 && Math.abs(y - p.y) < (bh + p.bh) / 2 + 4) y = p.y - p.bh - 6;
+      if (Math.abs(x - p.x) < (bw + p.bw) / 2 + 4 && Math.abs(top + bh - (p.y)) < (bh + p.bh) / 2 + 4) top = p.y - p.bh - 6;
     }
-    y = clamp(y, 46, H - 8);
+    top = clamp(top, 46, Math.max(46, H - 8 - bh));
+    const y = top + bh;
     ctx.restore();
     const g = { x, y, bw, bh, lines, koLines };
     placed.push(g);
@@ -987,6 +989,7 @@
   // debug/test hooks via query string: ?auto=dad|mom&t=<elapsedSeconds>
   if (typeof location !== 'undefined' && location.search) {
     const qs = new URLSearchParams(location.search);
+    if (qs.get('touch')) { const w = document.getElementById('wrap'); if (w) w.classList.add('force'); }
     if (qs.get('auto')) {
       chosen = qs.get('auto') === 'mom' ? 1 : 0;
       reset();
