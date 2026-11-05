@@ -10,7 +10,7 @@ https://youngjinbak-mistral.github.io/parenting-game/
 
 ## Controls
 - Desktop: arrows move, A grabs/delivers/dismisses, S drops. Click a parent card (or <-/-> + A) to choose.
-- Phone: on-screen D-pad + A/S buttons.
+- Phone: tap-to-move / tap-to-act (tap a station or family member to go and act; a small S button drops the carried item).
 
 ## Run locally
 Serve this folder with any static server (e.g. `python3 -m http.server 8001`) and open index.html.

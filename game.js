@@ -195,6 +195,7 @@
     const code = e.code || e.key;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code)) e.preventDefault();
     keys[code] = true;
+    if (P.target && code.startsWith('Arrow')) P.target = null; // keyboard overrides tap-to-move
     const act = code === 'KeyA' || code === 'Enter' || code === 'Space';
     const rst = code === 'KeyR' || act;
     if (state === 'title') {
@@ -202,27 +203,89 @@
       if (code === 'ArrowRight') chosen = 1;
       if (act) reset();
     } else if (state === 'gameover' || state === 'win') {
-      if (rst && perf - stateAt > 0.8) setState('title');
+      if (rst && perf - stateAt > 0.8) toTitle();
     } else if (state === 'play') {
       if (act) { if (chat) chat = null; interact(); } // A dismisses the chat AND acts
       else if (code === 'KeyS' || code === 'KeyX') dropCarry();
     }
   });
   addEventListener('keyup', (e) => { keys[e.code || e.key] = false; });
-  canvas.addEventListener('mousedown', (e) => {
+
+  // tap-to-move / tap-to-act (touch + primary mouse button): a short, low-motion tap on the canvas.
+  // Tap an interactable -> walk there and act on THAT entity on arrival; tap floor -> just walk.
+  // Single active pointer of any type; pointer capture so a finger sliding off can't deadlock input.
+  P.target = null;
+  function tap(lx, ly) {
+    // deterministic pick: nearest station (r30) vs nearest requester (r36), nearer wins, requester wins ties
+    let bestSt = null, bdSt = 30;
+    for (const st of STATIONS) {
+      const d = Math.hypot(lx - st.x, ly - st.y);
+      if (d < bdSt) { bdSt = d; bestSt = st; }
+    }
+    let bestWho = null, bdWho = 36;
+    for (const who of [B, S, HS]) {
+      if (who !== B && who !== HS && !who.active) continue;
+      if (!who.req) continue;
+      const d = Math.hypot(lx - who.x, ly - who.y);
+      if (d < bdWho) { bdWho = d; bestWho = who; }
+    }
+    if (bestWho && (!bestSt || bdWho <= bdSt)) {
+      P.target = { kind: 'who', ref: bestWho, x: bestWho.x, y: bestWho.y, act: true, since: perf };
+    } else if (bestSt) {
+      P.target = { kind: 'station', ref: bestSt, x: bestSt.x, y: bestSt.y, act: true, since: perf };
+    } else {
+      P.target = { kind: 'floor', x: clamp(lx, 16, W - 16), y: clamp(ly, 34, H - 14), act: false, since: perf };
+    }
+  }
+  function actOnTarget(t) { // act on the exact entity tapped (revalidated at arrival)
+    if (t.kind === 'station') {
+      const st = t.ref;
+      if (near(st.x, st.y, 30) && P.carry !== st.item) { P.carry = st.item; announce = { text: 'GOT ' + st.item.toUpperCase(), t: 0 }; }
+    } else if (t.kind === 'who') {
+      const who = t.ref;
+      if (who.req && near(who.x, who.y, 34)) {
+        const need = who.req.entry.icon;
+        if (!need || P.carry === need) { if (need) P.carry = null; fulfillRequest(who); }
+        else { announce = { text: 'NEEDS ' + String(need).toUpperCase(), t: 0 }; shake = 4; }
+      } else if (who === B && !B.asleep) popBabyWords(1);
+    }
+  }
+  let activePointer = null, downAt = null, downPos = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return; // primary button only
+    if (activePointer !== null) return; // one active pointer of any type; extra fingers ignored
+    activePointer = e.pointerId;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    downPos = { x: e.clientX, y: e.clientY };
+    downAt = { lx: (e.clientX - r.left) * W / r.width, ly: (e.clientY - r.top) * H / r.height };
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    if (e.pointerId !== activePointer) return;
+    activePointer = null;
+    // only a short, low-motion press counts as a tap (drags don't move the player)
+    if (!downAt || !downPos) return;
+    if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 14) { downAt = null; return; }
+    const { lx, ly } = downAt;
+    downAt = null;
     if (state === 'title') {
-      // only clicks on a character card start the game (and select that parent)
-      const r = canvas.getBoundingClientRect();
-      const lx = (e.clientX - r.left) * W / r.width;
-      const ly = (e.clientY - r.top) * H / r.height;
+      // only taps on a character card start the game (and select that parent)
       if (ly > 96 && ly < 196 && ((lx > 282 && lx < 392) || (lx > 88 && lx < 198))) {
         chosen = (lx > 282 && lx < 392) ? 1 : 0;
         reset();
       }
+    } else if (state === 'gameover' || state === 'win') {
+      if (perf - stateAt > 0.8) toTitle();
+    } else if (state === 'play') {
+      if (chat) chat = null; // dismiss chat AND still take the tap
+      tap(lx, ly);
     }
-    else if (state === 'gameover' || state === 'win') { if (perf - stateAt > 0.8) setState('title'); }
-    else if (state === 'play') { if (chat) chat = null; interact(); }
   });
+  const releasePointer = (e) => { if (e.pointerId === activePointer) { activePointer = null; downAt = null; } };
+  canvas.addEventListener('pointercancel', releasePointer);
+  canvas.addEventListener('lostpointercapture', releasePointer);
+  addEventListener('blur', () => { activePointer = null; downAt = null; });
 
   function toTitle() { // clear the world so the title screen isn't drawn over a stale game
     setState('title');
@@ -230,30 +293,12 @@
     particles = []; chat = null; announce = null;
   }
 
-  // ---------------- touch controls (D-pad + A/S buttons) ----------------
+  // ---------------- touch controls ----------------
+  // movement/action on touch is tap-to-move/tap-to-act (canvas pointerdown above);
+  // only the drop button remains on screen (S), shown on touch devices only
   function setKey(code, down) { keys[code] = down; }
-  function bindHold(el, code) {
-    if (!el) return;
-    const on = (e) => { e.preventDefault(); setKey(code, true); };
-    const off = (e) => { e.preventDefault(); setKey(code, false); }; // touchend AND touchcancel -> no stuck movement
-    el.addEventListener('touchstart', on, { passive: false });
-    el.addEventListener('touchend', off, { passive: false });
-    el.addEventListener('touchcancel', off, { passive: false });
-    el.addEventListener('mousedown', on);
-    el.addEventListener('mouseup', off);
-    el.addEventListener('mouseleave', off);
-  }
   if (typeof document !== 'undefined') {
-    document.querySelectorAll('#dpad .dbtn').forEach((el) => bindHold(el, el.dataset.k));
-    const btnA = document.getElementById('btnA');
     const btnS = document.getElementById('btnS');
-    const act = (e) => {
-      e.preventDefault();
-      if (state === 'play') { if (chat) chat = null; interact(); }
-      else if (state === 'title') reset();
-      else if ((state === 'gameover' || state === 'win') && perf - stateAt > 0.8) setState('title');
-    };
-    if (btnA) { btnA.addEventListener('touchstart', act, { passive: false }); btnA.addEventListener('mousedown', act); }
     if (btnS) {
       const drop = (e) => { e.preventDefault(); if (state === 'play') dropCarry(); };
       btnS.addEventListener('touchstart', drop, { passive: false });
@@ -266,7 +311,7 @@
     elapsed = 0; happiness = BAL.start_happiness || 80;
     fulfilled = 0; expired = 0; shake = 0; flash = 0; announce = null;
     checklistFired = new Set(); wakeupDone = false; particles = []; chat = null;
-    P.x = W / 2; P.y = H / 2 + 30; P.vx = 0; P.vy = 0; P.carry = null; P.face = 1;
+    P.x = W / 2; P.y = H / 2 + 30; P.vx = 0; P.vy = 0; P.carry = null; P.face = 1; P.target = null;
     B.x = 180; B.y = 160; B.req = null; B.cooldown = (SCHED.baby_first_request_after_sec || 4); B.mood = 0; B.asleep = false; B.asleepUntil = 0; B.action = null;
     S.x = -40; S.active = false; S.req = null; S.cooldown = (SCHED.spouse_first_request_after_sec || 6); S.mood = 0; S.wx = 0; S.vx = 0; S.vy = 0; S.action = null;
     HS.req = null; HS.cooldown = 25; HS.mood = 0; HS.action = null;
@@ -469,13 +514,32 @@
       announce = { text: 'BABY WOKE UP (refreshed)', t: 0 };
     }
 
-    // player movement
-    let ax = 0, ay = 0;
-    if (keys.ArrowLeft) ax -= 1;
-    if (keys.ArrowRight) ax += 1;
-    if (keys.ArrowUp) ay -= 1;
-    if (keys.ArrowDown) ay += 1;
-    if (ax || ay) { const l = Math.hypot(ax, ay); P.vx += (ax / l) * 640 * dt; P.vy += (ay / l) * 640 * dt; }
+    // player movement: tap target steers when set (and wins over held keys); otherwise arrow keys
+    if (P.target) {
+      if (P.target.kind === 'who') { P.target.x = P.target.ref.x; P.target.y = P.target.ref.y; } // follow moving requester
+      if (perf - P.target.since > 6) P.target = null; // stall safety: never push forever
+      else {
+        const dx = P.target.x - P.x, dy = P.target.y - P.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 12) {
+          const t = P.target;
+          P.target = null;
+          P.vx = 0; P.vy = 0; // stop dead on arrival
+          if (t.act) actOnTarget(t); // act on the exact entity tapped
+        } else {
+          P.vx += (dx / d) * 900 * dt;
+          P.vy += (dy / d) * 900 * dt;
+        }
+      }
+    }
+    if (!P.target) {
+      let ax = 0, ay = 0;
+      if (keys.ArrowLeft) ax -= 1;
+      if (keys.ArrowRight) ax += 1;
+      if (keys.ArrowUp) ay -= 1;
+      if (keys.ArrowDown) ay += 1;
+      if (ax || ay) { const l = Math.hypot(ax, ay); P.vx += (ax / l) * 640 * dt; P.vy += (ay / l) * 640 * dt; }
+    }
     const fr = Math.exp(-5.5 * dt);
     P.vx *= fr; P.vy *= fr;
     const sp = Math.hypot(P.vx, P.vy), maxv = 150;
@@ -828,6 +892,13 @@
       ctx.restore();
       drawCharacterSpr(pName, P.x, P.y, 36, P.face < 0);
       if (P.carry) drawSpr('item_' + P.carry, P.x, P.y - 34, 16);
+      if (P.target) { // move-target marker
+        ctx.save();
+        ctx.strokeStyle = 'rgba(94,234,212,' + (0.5 + 0.4 * Math.sin(perf * 8)) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(P.target.x, P.target.y, 6 + Math.sin(perf * 8) * 1.5, 0, 6.29); ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // HUD: happiness bar + clock + carried (time of day is shown by the window, not by dimming)
@@ -1020,7 +1091,7 @@
     get happiness() { return happiness; }, set happiness(v) { happiness = v; },
     get elapsed() { return elapsed; }, set elapsed(v) { elapsed = v; },
     gameMin, P, B, S, HS, STATIONS,
-    reset, spawnRequest, fulfillRequest, expireRequest, interact, nearestStation, bubbleGeom, setKey,
+    reset, spawnRequest, fulfillRequest, expireRequest, interact, nearestStation, bubbleGeom, setKey, tap,
     get chosen() { return chosen; }, set chosen(v) { chosen = v; },
     get fulfilled() { return fulfilled; }, get expired() { return expired; },
     get chat() { return chat; },

@@ -18,6 +18,7 @@
     image-rendering: pixelated; image-rendering: crisp-edges;
     background: #000; border-radius: 4px;
     box-shadow: 0 0 60px rgba(255, 170, 90, .22), 0 0 0 2px #1c1c2e;
+    touch-action: none; /* taps on the game never scroll the page */
   }
   #scan {
     position: absolute; inset: 0; pointer-events: none; border-radius: 4px;
@@ -31,11 +32,8 @@
     border: 2px solid rgba(255,255,255,.5); border-radius: 10px; opacity: .8;
   }
   #touch button:active { background: rgba(94,234,212,.6); }
-  #dpad { position: absolute; left: 2%; bottom: 3%; width: 22%; aspect-ratio: 1; display: grid;
-    grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr; gap: 4%; }
-  #dpad .up { grid-area: 1/2; } #dpad .left { grid-area: 2/1; } #dpad .right { grid-area: 2/3; } #dpad .down { grid-area: 3/2; }
-  #abtns { position: absolute; right: 2%; bottom: 3%; display: flex; gap: 8%; width: 24%; }
-  #abtns .abtn { flex: 1; aspect-ratio: 1; font-size: 4.5vmin; border-radius: 50%; }
+  #abtns { position: absolute; right: 2%; bottom: 3%; display: flex; gap: 8%; width: 13%; }
+  #abtns .abtn { flex: 1; aspect-ratio: 1; font-size: 4vmin; border-radius: 50%; }
   /* touch controls only on touch devices; desktop plays with keyboard and keeps stations clear */
   @media (pointer: fine) { #touch { display: none; } }
   #wrap.force #touch { display: block; } /* force-show for testing via ?touch=1 */
@@ -47,14 +45,7 @@
     <canvas id="game" width="960" height="540"></canvas>
     <div id="scan"></div>
     <div id="touch">
-      <div id="dpad">
-        <button class="dbtn up" data-k="ArrowUp">▲</button>
-        <button class="dbtn left" data-k="ArrowLeft">◀</button>
-        <button class="dbtn right" data-k="ArrowRight">▶</button>
-        <button class="dbtn down" data-k="ArrowDown">▼</button>
-      </div>
       <div id="abtns">
-        <button id="btnA" class="abtn a">A</button>
         <button id="btnS" class="abtn s">S</button>
       </div>
     </div>
