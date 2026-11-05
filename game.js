@@ -1086,6 +1086,18 @@
       if (qs.get('sleep')) { spawnRequest('baby', 'baby_sleepy'); fulfillRequest(B); }
       if (qs.get('act')) { spawnRequest('baby', 'baby_' + qs.get('act')); fulfillRequest(B); B.mood = 999; }
     }
+    if (qs.get('taps')) { // test-only: dispatch real pointer events at logical coords, e.g. ?taps=434,210@0.5;180,160@3
+      for (const part of qs.get('taps').split(';')) {
+        const [xy, at] = part.split('@');
+        const [tx, ty] = xy.split(',').map(Number);
+        setTimeout(() => {
+          const r = canvas.getBoundingClientRect();
+          const cx = r.left + tx / W * r.width, cy = r.top + ty / H * r.height;
+          canvas.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 7, pointerType: 'touch', button: 0, clientX: cx, clientY: cy, bubbles: true }));
+          canvas.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, pointerType: 'touch', button: 0, clientX: cx, clientY: cy, bubbles: true }));
+        }, parseFloat(at || '0.5') * 1000);
+      }
+    }
     if (qs.get('debug') && typeof document !== 'undefined') {
       const d = document.createElement('div');
       d.id = 'debug';
@@ -1096,6 +1108,7 @@
           state, sprites: Object.keys(SPR).length, sprLoaded,
           missing: SPR_NAMES.filter((n) => !SPR[n]),
           req: B.req ? B.req.entry.id : null, carry: P.carry, happiness: Math.round(happiness),
+          target: P.target ? P.target.kind : null, fulfilled,
           rect: canvas.getBoundingClientRect ? (() => { const r = canvas.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })() : null,
           iw: innerWidth, ih: innerHeight,
           playerSprite: chosen === 0 ? 'dad_idle' : 'mom_idle',
