@@ -1089,6 +1089,7 @@
     if (qs.get('debug') && typeof document !== 'undefined') {
       const d = document.createElement('div');
       d.id = 'debug';
+      d.style.cssText = 'position:fixed;left:0;bottom:0;z-index:99;color:#0f0;font:10px monospace;pointer-events:none'; // fixed: don't shift canvas layout
       document.body.appendChild(d);
       setInterval(() => {
         d.textContent = 'DBG ' + JSON.stringify({
@@ -1098,6 +1099,25 @@
           rect: canvas.getBoundingClientRect ? (() => { const r = canvas.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })() : null,
           iw: innerWidth, ih: innerHeight,
           playerSprite: chosen === 0 ? 'dad_idle' : 'mom_idle',
+          // hit-test: what element is under each station's tap point right now?
+          hit: (() => {
+            const r = canvas.getBoundingClientRect();
+            const at = (lx, ly) => {
+              const el = document.elementFromPoint(r.left + lx / W * r.width, r.top + ly / H * r.height);
+              return el ? (el.id || el.className || el.tagName) : 'none';
+            };
+            return { bath: at(434, 210), closet: at(44, 190), dresser: at(312, 240), sBtn: at(60, 250) };
+          })(),
+          // do any current request bubbles intersect?
+          bubblesOverlap: (() => {
+            const placed = [];
+            const gs = [B, S, HS].filter((w) => w.req).map((w) => bubbleGeom(w, placed)).filter(Boolean);
+            for (let i = 0; i < gs.length; i++) for (let j = i + 1; j < gs.length; j++) {
+              const a = gs[i], b = gs[j];
+              if (Math.abs(a.x - b.x) < (a.bw + b.bw) / 2 && Math.abs((a.y - a.bh / 2) - (b.y - b.bh / 2)) < (a.bh + b.bh) / 2) return true;
+            }
+            return false;
+          })(),
         });
       }, 400);
     }
